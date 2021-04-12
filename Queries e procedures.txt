@@ -1,0 +1,111 @@
+--Criação do banco de dados e tabelas.
+CREATE DATABASE escoladesamba
+
+USE escoladesamba
+
+CREATE TABLE escola (
+	id_escola INT,
+	nome VARCHAR(44),
+	notaTotal FLOAT
+	PRIMARY KEY (id_escola)
+)
+
+CREATE TABLE quesito (
+	id_quesito INT,
+	nome VARCHAR(36),
+	PRIMARY KEY (id_quesito)
+)
+
+CREATE TABLE jurado (
+	id_jurado INT
+	PRIMARY KEY (id_jurado)
+)
+
+CREATE TABLE apuracao (
+	id_escola INT,
+	id_quesito INT,
+	id_jurado INT,
+	nota FLOAT,
+	notaValida BIT,
+	FOREIGN KEY (id_escola) REFERENCES escola(id_escola),
+	FOREIGN KEY (id_quesito) REFERENCES quesito(id_quesito),
+	FOREIGN KEY (id_jurado) REFERENCES jurado(id_jurado),
+	PRIMARY KEY (id_escola, id_quesito, id_jurado)
+)
+
+--Inserção de dados nas colunas escola e quesito.
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (0, 'Acadêmicos do Tatuapé', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (1, 'Rosas de Ouro', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (2, 'Mancha Verde', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (3, 'Vai-Vai', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (4, 'X-9 Paulistana', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (5, 'Dragões da Real', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (6, 'Águia de Ouro', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (7, 'Nenê da Vila Matilde', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (8, 'Gaviões da Fiel', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (9, 'Mocidade Alegre', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (10, 'Tom Maior', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (11, 'Unidos de Vila Maria', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (12, 'Acadêmicos do Tucuruvi', 0)
+INSERT INTO escola (id_escola, nome, notaTotal) VALUES (13, 'Império de Casa Verde', 0)
+
+INSERT INTO quesito (id_quesito, nome) VALUES (0, 'Comissão de Frente')
+INSERT INTO quesito (id_quesito, nome) VALUES (1, 'Evolução')
+INSERT INTO quesito (id_quesito, nome) VALUES (2, 'Fantasia')
+INSERT INTO quesito (id_quesito, nome) VALUES (3, 'Bateria')
+INSERT INTO quesito (id_quesito, nome) VALUES (4, 'Alegoria')
+INSERT INTO quesito (id_quesito, nome) VALUES (5, 'Harmonia')
+INSERT INTO quesito (id_quesito, nome) VALUES (6, 'Samba-Enredo')
+INSERT INTO quesito (id_quesito, nome) VALUES (7, 'Mestre-Sala')
+INSERT INTO quesito (id_quesito, nome) VALUES (8, 'Porta-Bandeira')
+
+INSERT INTO jurado (id_jurado) VALUES (1)
+INSERT INTO jurado (id_jurado) VALUES (2)
+INSERT INTO jurado (id_jurado) VALUES (3)
+INSERT INTO jurado (id_jurado) VALUES (4)
+INSERT INTO jurado (id_jurado) VALUES (5)
+
+
+--Procedimento de inserir nota
+CREATE PROCEDURE sp_insere_nota(@id_escola INT, @id_quesito INT, @id_jurado INT, @nota FLOAT)
+AS
+DECLARE @count INT
+SET @count = (SELECT COUNT(*) FROM apuracao WHERE id_escola = @id_escola AND id_quesito = @id_quesito)
+IF (@count >= 3)
+BEGIN
+	DECLARE @menorNota FLOAT
+	SET @menorNota = (SELECT MIN(nota) FROM apuracao WHERE id_escola = @id_escola AND id_quesito = @id_quesito)
+	
+	DECLARE @maiorNota FLOAT
+	SET @maiorNota = (SELECT MAX(nota) FROM apuracao WHERE id_escola = @id_escola AND id_quesito = @id_quesito)
+
+	IF (@nota >= @maiorNota OR @nota <= @menorNota)
+	BEGIN
+		INSERT INTO apuracao (id_escola, id_quesito, id_jurado, nota, notaValida) VALUES (@id_escola, @id_quesito, @id_jurado, @nota, 0)
+	END
+	ELSE
+	BEGIN
+		DECLARE @diferencaMenorNota FLOAT
+		SET @diferencaMenorNota = ABS(@nota - @menorNota)
+
+		DECLARE @diferencaMaiorNota FLOAT
+		SET @diferencaMaiorNota = ABS(@nota - @maiorNota)
+
+		IF (@diferencaMaiorNota < @diferencaMenorNota)
+		BEGIN
+			UPDATE apuracao	SET notaValida = 0 WHERE nota = @maiorNota
+		END
+		ELSE
+		BEGIN
+			UPDATE apuracao	SET notaValida = 0 WHERE nota = @menorNota
+		END
+		INSERT INTO apuracao (id_escola, id_quesito, id_jurado, nota, notaValida) VALUES (@id_escola, @id_quesito, @id_jurado, @nota, 1)
+	END
+END
+ELSE
+BEGIN
+	INSERT INTO apuracao (id_escola, id_quesito, id_jurado, nota, notaValida) VALUES (@id_escola, @id_quesito, @id_jurado, @nota, 1)
+END
+DECLARE @somaNotasValidas FLOAT
+SET @somaNotasValidas = (SELECT SUM(nota) FROM apuracao WHERE notaValida = 1 AND id_escola = 0)
+UPDATE escola SET notaTotal = @somaNotasValidas WHERE id_escola = @id_escola
